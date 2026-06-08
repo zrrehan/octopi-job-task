@@ -31,7 +31,7 @@ const serviceGetAvailability = async (
         }
 
         const nowOrg = DateTime.now().setZone(org.timezone);
-        const requestedDate = DateTime.fromFormat(dateStr, "yyyy-MM-dd").setZone(org.timezone).startOf("day");
+        const requestedDate = DateTime.fromISO(dateStr, { zone: org.timezone }).startOf("day");
         if (requestedDate < nowOrg.startOf("day")) {
             return { success: false, message: "Cannot book a date in the past" };
         }
@@ -45,15 +45,19 @@ const serviceGetAvailability = async (
         const workStart = requestedDate.set({ hour: startHour, minute: startMin, second: 0, millisecond: 0 });
         const workEnd = requestedDate.set({ hour: endHour, minute: endMin, second: 0, millisecond: 0 });
 
-        const dayStartUTC = workStart.toUTC();
-        const dayEndUTC = workEnd.toUTC();
+        const dayStartUTC = requestedDate.startOf("day").toUTC();
+        const dayEndUTC = requestedDate.endOf("day").toUTC();
         const bookings = await Booking.find({
             resource_id: resource._id,
             status: "CONFIRMED",
-            start_time: { $gte: dayStartUTC.toJSDate(), $lt: dayEndUTC.toJSDate() }
+            $and: [
+                { start_time: { $lt: dayEndUTC.toJSDate() } },
+                { end_time: { $gt: dayStartUTC.toJSDate() } }
+            ]
         });
 
-        const slots: Slot[] = [];
+        // Store slot dates as DateTime objects to avoid re-parsing
+        const slots: (Slot & { slotStart: DateTime, slotEnd: DateTime })[] = [];
         let currentStart = workStart;
         const durationDuration = Duration.fromObject({ minutes: duration });
         while (currentStart.plus(durationDuration) <= workEnd) {
@@ -61,23 +65,17 @@ const serviceGetAvailability = async (
             slots.push({
                 start: currentStart.toFormat("HH:mm"),
                 end: currentEnd.toFormat("HH:mm"),
-                available: true
+                available: true,
+                slotStart: currentStart,
+                slotEnd: currentEnd
             });
             currentStart = currentEnd;
         }
 
         const now = DateTime.now().setZone(org.timezone);
         for (let slot of slots) {
-            const slotStart = DateTime.fromFormat(slot.start, "HH:mm").setZone(org.timezone).set({
-                year: requestedDate.year,
-                month: requestedDate.month,
-                day: requestedDate.day
-            });
-            const slotEnd = DateTime.fromFormat(slot.end, "HH:mm").setZone(org.timezone).set({
-                year: requestedDate.year,
-                month: requestedDate.month,
-                day: requestedDate.day
-            });
+            const slotStart = slot.slotStart;
+            const slotEnd = slot.slotEnd;
 
             if (requestedDate.hasSame(nowOrg, "day")) {
                 if (slotEnd < now) {
@@ -104,7 +102,9 @@ const serviceGetAvailability = async (
             }
         }
 
-        return { success: true, data: slots };
+        // Strip out temporary properties before returning
+        const cleanSlots = slots.map(({ slotStart, slotEnd, ...cleanSlot }) => cleanSlot);
+        return { success: true, data: cleanSlots };
     } catch (error: any) {
         return { success: false, message: error.message };
     }
@@ -137,7 +137,7 @@ const serviceCreateBooking = async (
         }
 
         const nowOrg = DateTime.now().setZone(org.timezone);
-        const requestedDate = DateTime.fromFormat(dateStr, "yyyy-MM-dd").setZone(org.timezone).startOf("day");
+        const requestedDate = DateTime.fromISO(dateStr, { zone: org.timezone }).startOf("day");
         const [startHour, startMin] = startTimeStr.split(":").map(Number);
         const slotStart = requestedDate.set({ hour: startHour, minute: startMin, second: 0, millisecond: 0 });
         const slotEnd = slotStart.plus({ minutes: durationMinutes });
@@ -154,12 +154,15 @@ const serviceCreateBooking = async (
             return { success: false, message: "Cannot book a past slot" };
         }
 
-        const dayStartUTC = workStart.toUTC();
-        const dayEndUTC = workEnd.toUTC();
+        const dayStartUTC = requestedDate.startOf("day").toUTC();
+        const dayEndUTC = requestedDate.endOf("day").toUTC();
         const existingBookings = await Booking.find({
             resource_id: resourceObjectId,
             status: "CONFIRMED",
-            start_time: { $gte: dayStartUTC.toJSDate(), $lt: dayEndUTC.toJSDate() }
+            $and: [
+                { start_time: { $lt: dayEndUTC.toJSDate() } },
+                { end_time: { $gt: dayStartUTC.toJSDate() } }
+            ]
         });
 
         const slotStartUTC = slotStart.toUTC();

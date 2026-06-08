@@ -8,6 +8,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -32,7 +43,7 @@ const serviceGetAvailability = (resourceId, dateStr, duration) => __awaiter(void
             return { success: false, message: "Organization has no working hours configured" };
         }
         const nowOrg = luxon_1.DateTime.now().setZone(org.timezone);
-        const requestedDate = luxon_1.DateTime.fromFormat(dateStr, "yyyy-MM-dd").setZone(org.timezone).startOf("day");
+        const requestedDate = luxon_1.DateTime.fromISO(dateStr, { zone: org.timezone }).startOf("day");
         if (requestedDate < nowOrg.startOf("day")) {
             return { success: false, message: "Cannot book a date in the past" };
         }
@@ -44,13 +55,17 @@ const serviceGetAvailability = (resourceId, dateStr, duration) => __awaiter(void
         const [endHour, endMin] = org.workingHours.end.split(":").map(Number);
         const workStart = requestedDate.set({ hour: startHour, minute: startMin, second: 0, millisecond: 0 });
         const workEnd = requestedDate.set({ hour: endHour, minute: endMin, second: 0, millisecond: 0 });
-        const dayStartUTC = workStart.toUTC();
-        const dayEndUTC = workEnd.toUTC();
+        const dayStartUTC = requestedDate.startOf("day").toUTC();
+        const dayEndUTC = requestedDate.endOf("day").toUTC();
         const bookings = yield Booking_1.Booking.find({
             resource_id: resource._id,
             status: "CONFIRMED",
-            start_time: { $gte: dayStartUTC.toJSDate(), $lt: dayEndUTC.toJSDate() }
+            $and: [
+                { start_time: { $lt: dayEndUTC.toJSDate() } },
+                { end_time: { $gt: dayStartUTC.toJSDate() } }
+            ]
         });
+        // Store slot dates as DateTime objects to avoid re-parsing
         const slots = [];
         let currentStart = workStart;
         const durationDuration = luxon_1.Duration.fromObject({ minutes: duration });
@@ -59,22 +74,16 @@ const serviceGetAvailability = (resourceId, dateStr, duration) => __awaiter(void
             slots.push({
                 start: currentStart.toFormat("HH:mm"),
                 end: currentEnd.toFormat("HH:mm"),
-                available: true
+                available: true,
+                slotStart: currentStart,
+                slotEnd: currentEnd
             });
             currentStart = currentEnd;
         }
         const now = luxon_1.DateTime.now().setZone(org.timezone);
         for (let slot of slots) {
-            const slotStart = luxon_1.DateTime.fromFormat(slot.start, "HH:mm").setZone(org.timezone).set({
-                year: requestedDate.year,
-                month: requestedDate.month,
-                day: requestedDate.day
-            });
-            const slotEnd = luxon_1.DateTime.fromFormat(slot.end, "HH:mm").setZone(org.timezone).set({
-                year: requestedDate.year,
-                month: requestedDate.month,
-                day: requestedDate.day
-            });
+            const slotStart = slot.slotStart;
+            const slotEnd = slot.slotEnd;
             if (requestedDate.hasSame(nowOrg, "day")) {
                 if (slotEnd < now) {
                     slot.available = false;
@@ -97,7 +106,12 @@ const serviceGetAvailability = (resourceId, dateStr, duration) => __awaiter(void
                 }
             }
         }
-        return { success: true, data: slots };
+        // Strip out temporary properties before returning
+        const cleanSlots = slots.map((_a) => {
+            var { slotStart, slotEnd } = _a, cleanSlot = __rest(_a, ["slotStart", "slotEnd"]);
+            return cleanSlot;
+        });
+        return { success: true, data: cleanSlots };
     }
     catch (error) {
         return { success: false, message: error.message };
@@ -120,7 +134,7 @@ const serviceCreateBooking = (userId, resourceId, dateStr, startTimeStr, duratio
             return { success: false, message: "You are not a member of this organization" };
         }
         const nowOrg = luxon_1.DateTime.now().setZone(org.timezone);
-        const requestedDate = luxon_1.DateTime.fromFormat(dateStr, "yyyy-MM-dd").setZone(org.timezone).startOf("day");
+        const requestedDate = luxon_1.DateTime.fromISO(dateStr, { zone: org.timezone }).startOf("day");
         const [startHour, startMin] = startTimeStr.split(":").map(Number);
         const slotStart = requestedDate.set({ hour: startHour, minute: startMin, second: 0, millisecond: 0 });
         const slotEnd = slotStart.plus({ minutes: durationMinutes });
@@ -134,12 +148,15 @@ const serviceCreateBooking = (userId, resourceId, dateStr, startTimeStr, duratio
         if (slotEnd < nowOrg) {
             return { success: false, message: "Cannot book a past slot" };
         }
-        const dayStartUTC = workStart.toUTC();
-        const dayEndUTC = workEnd.toUTC();
+        const dayStartUTC = requestedDate.startOf("day").toUTC();
+        const dayEndUTC = requestedDate.endOf("day").toUTC();
         const existingBookings = yield Booking_1.Booking.find({
             resource_id: resourceObjectId,
             status: "CONFIRMED",
-            start_time: { $gte: dayStartUTC.toJSDate(), $lt: dayEndUTC.toJSDate() }
+            $and: [
+                { start_time: { $lt: dayEndUTC.toJSDate() } },
+                { end_time: { $gt: dayStartUTC.toJSDate() } }
+            ]
         });
         const slotStartUTC = slotStart.toUTC();
         const slotEndUTC = slotEnd.toUTC();
