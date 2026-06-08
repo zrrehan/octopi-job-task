@@ -21,8 +21,8 @@ A multi-tenant resource booking and availability management system. Multiple org
 ### Installation
 
 ```bash
-git clone <your-repo-url>
-cd ResourceManagement
+git clone https://github.com/zrrehan/octopi-job-task.git
+cd octopi-job-task
 npm install
 ```
 
