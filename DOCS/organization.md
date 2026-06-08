@@ -13,6 +13,11 @@ Input:
     "timezone": "UTC"
 }
 ```
+Examples of valid timezones:
+- "UTC" (Coordinated Universal Time, default)
+- "Asia/Dhaka" (UTC+6:00)
+- "America/New_York" (UTC-5:00 / UTC-4:00 DST)
+- "Europe/London" (UTC+0:00 / UTC+1:00 DST)
 
 Expected output (success):
 ```json

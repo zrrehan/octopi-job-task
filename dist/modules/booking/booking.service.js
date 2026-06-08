@@ -205,18 +205,26 @@ const serviceGetMyBookings = (userId) => __awaiter(void 0, void 0, void 0, funct
     try {
         const userObjectId = new mongoose_1.default.Types.ObjectId(userId);
         const bookings = yield Booking_1.Booking.find({ user_id: userObjectId, status: { $ne: "CANCELLED" } });
+        // Fetch all unique organizations for these bookings
+        const organizationIds = [...new Set(bookings.map(b => b.organization_id.toString()))];
+        const organizations = yield Organization_1.Organization.find({ _id: { $in: organizationIds } });
+        const orgMap = new Map(organizations.map(org => [org._id.toString(), org]));
         return {
             success: true,
             data: {
-                bookings: bookings.map(booking => ({
-                    id: booking._id.toString(),
-                    resource_id: booking.resource_id.toString(),
-                    organization_id: booking.organization_id.toString(),
-                    user_id: booking.user_id.toString(),
-                    start_time: luxon_1.DateTime.fromJSDate(booking.start_time).toISO(),
-                    end_time: luxon_1.DateTime.fromJSDate(booking.end_time).toISO(),
-                    status: booking.status
-                }))
+                bookings: bookings.map(booking => {
+                    const org = orgMap.get(booking.organization_id.toString());
+                    const orgTimezone = (org === null || org === void 0 ? void 0 : org.timezone) || "UTC";
+                    return {
+                        id: booking._id.toString(),
+                        resource_id: booking.resource_id.toString(),
+                        organization_id: booking.organization_id.toString(),
+                        user_id: booking.user_id.toString(),
+                        start_time: luxon_1.DateTime.fromJSDate(booking.start_time).setZone(orgTimezone).toISO(),
+                        end_time: luxon_1.DateTime.fromJSDate(booking.end_time).setZone(orgTimezone).toISO(),
+                        status: booking.status
+                    };
+                })
             }
         };
     }
@@ -239,6 +247,9 @@ const serviceCancelBooking = (userId, bookingId) => __awaiter(void 0, void 0, vo
         }
         booking.status = "CANCELLED";
         const savedBooking = yield booking.save();
+        // Fetch organization for timezone
+        const org = yield Organization_1.Organization.findById(savedBooking.organization_id);
+        const orgTimezone = (org === null || org === void 0 ? void 0 : org.timezone) || "UTC";
         return {
             success: true,
             data: {
@@ -247,8 +258,8 @@ const serviceCancelBooking = (userId, bookingId) => __awaiter(void 0, void 0, vo
                     resource_id: savedBooking.resource_id.toString(),
                     organization_id: savedBooking.organization_id.toString(),
                     user_id: savedBooking.user_id.toString(),
-                    start_time: luxon_1.DateTime.fromJSDate(savedBooking.start_time).toISO(),
-                    end_time: luxon_1.DateTime.fromJSDate(savedBooking.end_time).toISO(),
+                    start_time: luxon_1.DateTime.fromJSDate(savedBooking.start_time).setZone(orgTimezone).toISO(),
+                    end_time: luxon_1.DateTime.fromJSDate(savedBooking.end_time).setZone(orgTimezone).toISO(),
                     status: savedBooking.status
                 }
             }

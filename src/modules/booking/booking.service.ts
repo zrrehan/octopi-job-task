@@ -218,18 +218,27 @@ const serviceGetMyBookings = async (userId: string) => {
         const userObjectId = new mongoose.Types.ObjectId(userId);
         const bookings = await Booking.find({ user_id: userObjectId, status: { $ne: "CANCELLED" } });
 
+        // Fetch all unique organizations for these bookings
+        const organizationIds = [...new Set(bookings.map(b => b.organization_id.toString()))];
+        const organizations = await Organization.find({ _id: { $in: organizationIds } });
+        const orgMap = new Map(organizations.map(org => [org._id.toString(), org]));
+
         return {
             success: true,
             data: {
-                bookings: bookings.map(booking => ({
-                    id: booking._id.toString(),
-                    resource_id: booking.resource_id.toString(),
-                    organization_id: booking.organization_id.toString(),
-                    user_id: booking.user_id.toString(),
-                    start_time: DateTime.fromJSDate(booking.start_time).toISO(),
-                    end_time: DateTime.fromJSDate(booking.end_time).toISO(),
-                    status: booking.status
-                }))
+                bookings: bookings.map(booking => {
+                    const org = orgMap.get(booking.organization_id.toString());
+                    const orgTimezone = org?.timezone || "UTC";
+                    return {
+                        id: booking._id.toString(),
+                        resource_id: booking.resource_id.toString(),
+                        organization_id: booking.organization_id.toString(),
+                        user_id: booking.user_id.toString(),
+                        start_time: DateTime.fromJSDate(booking.start_time).setZone(orgTimezone).toISO(),
+                        end_time: DateTime.fromJSDate(booking.end_time).setZone(orgTimezone).toISO(),
+                        status: booking.status
+                    };
+                })
             }
         };
     } catch (error: any) {
@@ -256,6 +265,10 @@ const serviceCancelBooking = async (userId: string, bookingId: string) => {
         booking.status = "CANCELLED";
         const savedBooking = await booking.save();
 
+        // Fetch organization for timezone
+        const org = await Organization.findById(savedBooking.organization_id);
+        const orgTimezone = org?.timezone || "UTC";
+
         return {
             success: true,
             data: {
@@ -264,8 +277,8 @@ const serviceCancelBooking = async (userId: string, bookingId: string) => {
                     resource_id: savedBooking.resource_id.toString(),
                     organization_id: savedBooking.organization_id.toString(),
                     user_id: savedBooking.user_id.toString(),
-                    start_time: DateTime.fromJSDate(savedBooking.start_time).toISO(),
-                    end_time: DateTime.fromJSDate(savedBooking.end_time).toISO(),
+                    start_time: DateTime.fromJSDate(savedBooking.start_time).setZone(orgTimezone).toISO(),
+                    end_time: DateTime.fromJSDate(savedBooking.end_time).setZone(orgTimezone).toISO(),
                     status: savedBooking.status
                 }
             }
