@@ -55,11 +55,11 @@ const serviceCreateUser = (name, email, password, phone) => __awaiter(void 0, vo
 const loginUser = (email, password) => __awaiter(void 0, void 0, void 0, function* () {
     const user = yield User_1.User.findOne({ email });
     if (!user) {
-        return { success: false, message: "Email didn't match" };
+        return { success: false, message: "Email or Password Did not match" };
     }
     const passMatched = yield bcrypt_1.default.compare(password, user.password);
     if (!passMatched) {
-        return { success: false, message: "Wrong password" };
+        return { success: false, message: "Email or Password Did not match" };
     }
     const token = jsonwebtoken_1.default.sign({
         userId: user._id.toString(),

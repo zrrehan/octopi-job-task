@@ -94,7 +94,7 @@ Expected output (validation error):
 ```json
 {
     "success": false,
-    "message": "Invalid email format"
+    "message": "Email or Password Did not match"
 }
 ```
 
