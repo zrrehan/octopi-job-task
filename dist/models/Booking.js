@@ -33,25 +33,16 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Organization = void 0;
+exports.Booking = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
-const OrganizationMemberSchema = new mongoose_1.Schema({
+const BookingSchema = new mongoose_1.Schema({
+    resource_id: { type: mongoose_1.Schema.Types.ObjectId, ref: "Resource", required: true },
+    organization_id: { type: mongoose_1.Schema.Types.ObjectId, ref: "Organization", required: true },
     user_id: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
-    role: { type: String, required: true, enum: ["ORG_ADMIN", "EMPLOYEE"], default: "EMPLOYEE" }
-});
-const WorkingHoursSchema = new mongoose_1.Schema({
-    start: { type: String, required: true, default: "09:00" },
-    end: { type: String, required: true, default: "18:00" }
-});
-const OrganizationSchema = new mongoose_1.Schema({
-    name: { type: String, required: true },
-    timezone: { type: String, required: true, default: "UTC" },
-    isActive: { type: Boolean, required: true, default: true },
-    admin_id: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
-    members: { type: [OrganizationMemberSchema], required: true, default: [] },
-    workingHours: { type: WorkingHoursSchema, required: true, default: { start: "09:00", end: "18:00" } },
-    maxBookingDays: { type: Number, required: true, default: 30 }
+    start_time: { type: Date, required: true },
+    end_time: { type: Date, required: true },
+    status: { type: String, required: true, enum: ["CONFIRMED", "CANCELLED"], default: "CONFIRMED" }
 }, {
     timestamps: true
 });
-exports.Organization = mongoose_1.default.model("Organization", OrganizationSchema);
+exports.Booking = mongoose_1.default.model("Booking", BookingSchema);
