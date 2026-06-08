@@ -1,0 +1,34 @@
+import { Request, Response } from "express";
+interface AuthRequest extends Request {
+    user?: {
+        userId: string
+        email: string
+    }
+}
+import { organizationServices } from "./organization.service";
+import { createOrganizationSchema } from "../../validations/organization.validation";
+
+const createOrganization = async (req: AuthRequest, res: Response) => {
+    if (!req.user) {
+        return res.status(401).send({ success: false, message: "Unauthorized" });
+    }
+    try {
+        const validatedData = createOrganizationSchema.parse(req.body);
+        const result = await organizationServices.serviceCreateOrganization(
+            req.user.userId,
+            validatedData.name,
+            validatedData.timezone
+        );
+        if (!result.success) {
+            return res.status(400).send(result);
+        }
+        return res.send(result);
+    } catch (error: any) {
+        const message = error.issues?.[0]?.message || "Validation error";
+        return res.status(400).send({ success: false, message });
+    }
+};
+
+export const organizationController = {
+    createOrganization
+};

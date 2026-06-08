@@ -107,6 +107,6 @@ Used to verify JWT tokens and attach user information to `req.user`
 ```typescript
 import { auth } from "./middleware/auth";
 app.get("/protected-route", auth, (req, res) => {
-  // req.user contains userId, email
+  // req.user contains userId and email
 });
 ```
