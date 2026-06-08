@@ -8,6 +8,7 @@ const config_1 = require("./config");
 const db_1 = require("./config/db");
 const auth_routes_1 = require("./modules/auth/auth.routes");
 const organization_routes_1 = require("./modules/organization/organization.routes");
+const resource_routes_1 = require("./modules/resource/resource.routes");
 const app = (0, express_1.default)();
 const port = config_1.config.PORT;
 // parser 
@@ -16,6 +17,7 @@ app.use(express_1.default.json());
 (0, db_1.initialDatabase)();
 app.use("/api/v1/auth", auth_routes_1.authRouter);
 app.use("/api/v1/organization", organization_routes_1.organizationRouter);
+app.use("/api/v1/resource", resource_routes_1.resourceRouter);
 app.get("/", (req, res) => {
     res.send({
         success: true,

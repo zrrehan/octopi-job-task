@@ -6,4 +6,5 @@ const organization_controller_1 = require("./organization.controller");
 const auth_1 = require("../../middleware/auth");
 const router = (0, express_1.Router)();
 router.post("/create", auth_1.auth, organization_controller_1.organizationController.createOrganization);
+router.post("/add-user", auth_1.auth, organization_controller_1.organizationController.addUserToOrganization);
 exports.organizationRouter = router;

@@ -30,6 +30,25 @@ const createOrganization = (req, res) => __awaiter(void 0, void 0, void 0, funct
         return res.status(400).send({ success: false, message });
     }
 });
+const addUserToOrganization = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
+    if (!req.user) {
+        return res.status(401).send({ success: false, message: "Unauthorized" });
+    }
+    try {
+        const validatedData = organization_validation_1.addUserToOrgSchema.parse(req.body);
+        const result = yield organization_service_1.organizationServices.serviceAddUserToOrganization(req.user.userId, validatedData.organizationId, validatedData.userEmail);
+        if (!result.success) {
+            return res.status(400).send(result);
+        }
+        return res.send(result);
+    }
+    catch (error) {
+        const message = ((_b = (_a = error.issues) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.message) || "Validation error";
+        return res.status(400).send({ success: false, message });
+    }
+});
 exports.organizationController = {
-    createOrganization
+    createOrganization,
+    addUserToOrganization
 };

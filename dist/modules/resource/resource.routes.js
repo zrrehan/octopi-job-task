@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.resourceRouter = void 0;
+const express_1 = require("express");
+const resource_controller_1 = require("./resource.controller");
+const auth_1 = require("../../middleware/auth");
+const router = (0, express_1.Router)();
+router.post("/create", auth_1.auth, resource_controller_1.resourceController.createResource);
+router.get("/:organizationId", auth_1.auth, resource_controller_1.resourceController.getResourcesByOrganization);
+router.delete("/:resourceId", auth_1.auth, resource_controller_1.resourceController.softDeleteResource);
+exports.resourceRouter = router;
